@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pantry Tracker</title>
+
+  <style>
+    :root {
+      --bg:#12161f;
+      --panel:#1c2431;
+      --panel2:#222c3b;
+      --line:#324052;
+      --ink:#f4f6fb;
+      --muted:#a4b1c3;
+      --accent:#48d8c8;
+      --warn:#f0a25b;
+      --danger:#e86f5b;
+      --btn:#273243;
+      --btnHover:#314056;
+    }
+
+    * { box-sizing:border-box; }
+    html, body { background:var(--bg); color:var(--ink); min-height:100vh; }
+    body { font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; font-size:13px; }
+
+    main { width:100%; max-width:520px; margin:0 auto; padding:12px 10px 24px; }
+    .title { color:var(--accent); font-size:1.3rem; font-weight:850; }
+    .subtitle { color:var(--muted); margin-top:6px; }
+
+    .controls { margin:12px 0 8px; display:flex; flex-wrap:wrap; gap:10px; }
+    .addForm { margin:14px 0 12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .controls label.control, .addForm label.control {
+      display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+      padding:7px 9px; border:1px solid var(--line); border-radius:10px;
+      background:rgba(255,255,255,.04); flex:1; min-width:130px;
+    }
+    .controls label.control .fl, .addForm label.control .fl {
+      color:var(--muted); font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.35px;
+    }
+    label.control input[type="checkbox"] { width:18px; height:18px; accent-color:var(--accent); margin:0 8px 0 0; }
+    label.control input:not([type="checkbox"]) {
+      color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:9px;
+      padding:7px 9px; font:inherit; flex:1; min-width:60px;
+    }
+
+    button.btn { border:0; background:var(--btn); color:var(--ink); border-radius:9px; padding:7px 10px; cursor:pointer; font:inherit; }
+    button.btn:hover { background:var(--btnHover); }
+    button.btn.addBtn { background:var(--btnHover); }
+    button.btn.plus { background:#253041; }
+    button.btn.minus { background:#253041; }
+    button.btn.trash { background:var(--danger); color:#fff; }
+    button.btn.exportBtn { background:var(--btnHover); }
+    button.btn.importBtn { background:var(--btnHover); }
+
+    #items { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+    li.card {
+      list-style:none; display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+      padding:8px 10px; background:var(--panel2); border:1px solid var(--line); border-radius:12px;
+    }
+    li.card.hide { display:none; }
+
+    label.field { display:flex; align-items:center; gap:5px; flex-wrap:wrap; flex:1; min-width:70px; }
+    label.field .fieldLabel { color:var(--muted); font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.35px; }
+    label.field input.card-name, label.field input.card-qty, label.field input.card-unit, label.field input.card-store {
+      color:var(--ink); background:var(--panel); border:1px solid var(--line); border-radius:9px;
+      padding:6px 8px; font:inherit;
+    }
+    input.card-name { flex:1; min-width:90px; }
+    input.card-qty { width:60px; flex:0; }
+    input.card-unit { width:80px; flex:0; }
+    input.card-store { width:85px; flex:0; }
+    label.field input[type="checkbox"] { width:18px; height:18px; accent-color:var(--accent); margin:0 6px 0 0; }
+
+    .card .need { color:var(--warn); background:rgba(240,162,91,.13); padding:4px 7px; border-radius:999px; font-size:.82rem; }
+    .actions { display:flex; flex-wrap:wrap; gap:6px; flex:0; min-width:120px; }
+    .actions button.btn { padding:6px 9px; }
+
+    .syncTools {
+      margin:10px 0 0; padding:10px 12px; background:var(--panel);
+      border:1px solid var(--line); border-radius:10px;
+    }
+    .syncTools .heading { color:var(--accent); font-size:.85rem; font-weight:850; }
+    .syncTools textarea {
+      width:100%; min-height:80px; font:inherit; color:var(--ink);
+      background:var(--panel); border:1px solid var(--line); border-radius:9px;
+      padding:7px 8px; resize:none;
+    }
+    .syncTools .status { color:var(--muted); font-size:.8rem; font-weight:700; }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="topbar">
+      <div class="title">Pantry Tracker</div>
+      <div class="subtitle">English compact version for a small screen.</div>
+    </header>
+
+    <section class="controls">
+      <label class="control shopping">
+        <input id="shoppingToggle" type="checkbox" />
+        <span class="fl">Shopping list</span>
+      </label>
+    </section>
+
+    <section class="addForm">
+      <label class="control item">
+        <span class="fl">Item</span>
+        <input id="newName" type="text" value="" />
+      </label>
+      <label class="control qty">
+        <span class="fl">Qty</span>
+        <input id="newQty" type="number" step="any" value="0" />
+      </label>
+      <label class="control unit">
+        <span class="fl">Unit</span>
+        <input id="newUnit" type="text" value="" />
+      </label>
+      <label class="control store">
+        <span class="fl">Store</span>
+        <input id="newStore" type="text" value="" />
+      </label>
+      <button id="addBtn" class="btn addBtn">Add</button>
+    </section>
+
+    <ul id="items"></ul>
+
+    <section class="syncTools">
+      <div class="heading">Sync</div>
+
+      <label class="field">
+        <span class="fl">Paste here</span>
+        <textarea id="importArea"></textarea>
+      </label>
+
+      <label class="field">
+        <span class="fl">Export box</span>
+        <textarea id="exportArea"></textarea>
+      </label>
+
+      <button id="importBtn" class="btn importBtn">Import</button>
+      <button id="exportBtn" class="btn exportBtn">Export</button>
+
+      <div id="status" class="status">No sync message.</div>
+    </section>
+
+    <div class="note">
+      Shopping list = items with "Buy" ticked and a store set. Store is free text: AH, Lidl, Kruidvat, or add any new store. +/- changes Qty by 1. x removes the item. To sync: press Export, copy the JSON text from the Export box, then on another device paste it into "Paste here" and press Import.
+    </div>
+  </main>
+
+  <script>
+    (function() {
+      const ITEMS_KEY = "pantryItemsV1";
+      const SEED_KEY = "pantrySeeded";
+
+      let items = [];
+      try {
+        items = JSON.parse(localStorage.getItem(ITEMS_KEY) || "[]");
+      } catch (err) {
+        items = [];
+      }
+
+      if (!Array.isArray(items)) items = [];
+
+      let seeded = localStorage.getItem(SEED_KEY) === "1";
+
+      function save() {
+        localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+      }
+
+      function setStatus(text) {
+        const el = document.getElementById("status");
+        if (el) el.textContent = String(text || "");
+      }
+
+      function parseNum(v) {
+        const raw = String(v || "").replace(",", ".").trim();
+        if (raw === "") return 0;
+        const n = parseFloat(raw);
+        return isFinite(n) ? Math.max(0, n) : 0;
+      }
+
+      function fmtNum(n) {
+        const v = Math.round((Number(n || 0)) * 1000) / 1000;
+        return String(v);
+      }
+
+      function makeId() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      }
+
+      function makeItem(name, qty, unit, store) {
+        return {
+          id: makeId(),
+          name: String(name || "").trim(),
+          qty: Math.max(0, Number(qty || 0)),
+          unit: String(unit || "").trim(),
+          store: String(store || "").trim(),
+          buy: false,
+          updatedAt: Date.now()
+        };
+      }
+
+      function setProp(item, prop, raw) {
+        if (prop === "name") item.name = String(raw || "").trim();
+        else if (prop === "unit") item.unit = String(raw || "").trim();
+        else if (prop === "store") item.store = String(raw || "").trim();
+        else if (prop === "qty") item.qty = parseNum(raw);
+      }
+
+      const container = document.getElementById("items");
+      const cardById = new Map();
+      let syncing = false;
+
+      function syncCard(card, item) {
+        syncing = true;
+        try {
+          cardById.set(String(item.id), card);
+          card.querySelector("input.card-name").value = item.name || "";
+          card.querySelector("input.card-qty").value = fmtNum(item.qty || 0);
+          card.querySelector("input.card-unit").value = item.unit || "";
+          card.querySelector("input.card-store").value = item.store || "";
+          card.querySelector("input.card-buy").checked = Boolean(item.buy);
+          save();
+          applyFilter();
+        } finally {
+          syncing = false;
+        }
+      }
+
+      function applyFilter() {
+        const shopping = document.getElementById("shoppingToggle").checked;
+
+        for (const item of items) {
+          const card = cardById.get(String(item.id));
+          if (!card) continue;
+
+          let need = "";
+          let visible = true;
+
+          if (shopping) {
+            const hasStore = String(item.store || "").trim() !== "";
+            if (!item.buy || !hasStore) {
+              visible = false;
+            } else {
+              need = [item.store, fmtNum(item.qty || 0), item.unit || ""].filter(function(x) { return x; }).join(" ");
+            }
+          }
+
+          if (visible) card.classList.remove("hide");
+          else card.classList.add("hide");
+
+          card.querySelector("span.need").textContent = need;
+        }
+      }
+
+      function buildCard(item) {
+        const card = document.createElement("li");
+        card.id = String(item.id);
+        card.className = "card";
+
+        function makeField(cls, labelText, type, val, numeric) {
+          const wrap = document.createElement("label");
+          wrap.className = "field";
+
+          const text = document.createElement("span");
+          text.className = "fieldLabel";
+          text.textContent = labelText;
+
+          const input = document.createElement("input");
+          input.type = type;
+          input.className = cls;
+          input.value = val;
+          if (numeric) input.step = "any";
+
+          wrap.appendChild(text);
+          wrap.appendChild(input);
+          card.appendChild(wrap);
+          return input;
+        }
+
+        const nameInput = makeField("card-name", "Item", "text", item.name || "", false);
+        const qtyInput = makeField("card-qty", "Qty", "number", fmtNum(item.qty || 0), true);
+        const unitInput = makeField("card-unit", "Unit", "text", item.unit || "", false);
+        const storeInput = makeField("card-store", "Store", "text", item.store || "", false);
+
+        const buyWrap = document.createElement("label");
+        buyWrap.className = "field";
+        const buyText = document.createElement("span");
+        buyText.className = "fieldLabel";
+        buyText.textContent = "Buy";
+        const buyInput = document.createElement("input");
+        buyInput.type = "checkbox";
+        buyInput.className = "card-buy";
+        buyInput.checked = Boolean(item.buy);
+        buyWrap.appendChild(buyText);
+        buyWrap.appendChild(buyInput);
+        card.appendChild(buyWrap);
+
+        const need = document.createElement("span");
+        need.className = "need";
+        card.appendChild(need);
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+        card.appendChild(actions);
+
+        function addBtn(cls, label) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "btn " + cls;
+          b.textContent = label;
+          actions.appendChild(b);
+          return b;
+        }
+
+        function listen(input, prop) {
+          const handler = function() {
+            if (syncing) return;
+            setProp(item, prop, input.value);
+            syncCard(card, item);
+          };
+          input.addEventListener("input", handler);
+          input.addEventListener("change", handler);
+        }
+
+        listen(nameInput, "name");
+        listen(qtyInput, "qty");
+        listen(unitInput, "unit");
+        listen(storeInput, "store");
+
+        const buyHandler = function() {
+          if (syncing) return;
+          item.buy = Boolean(buyInput.checked);
+          syncCard(card, item);
+        };
+        buyInput.addEventListener("input", buyHandler);
+        buyInput.addEventListener("change", buyHandler);
+
+        addBtn("plus", "+").addEventListener("click", function() {
+          if (syncing) return;
+          item.qty = Math.max(0, (item.qty || 0) + 1);
+          item.updatedAt = Date.now();
+          syncCard(card, item);
+        });
+
+        addBtn("minus", "-").addEventListener("click", function() {
+          if (syncing) return;
+          item.qty = Math.max(0, (item.qty || 0) - 1);
+          item.updatedAt = Date.now();
+          syncCard(card, item);
+        });
+
+        addBtn("trash", "x").addEventListener("click", function() {
+          if (syncing) return;
+          const idx = items.findIndex(function(x) { return x === item; });
+          if (idx >= 0) items.splice(idx, 1);
+          cardById.delete(String(item.id));
+          if (card.parentNode) card.parentNode.removeChild(card);
+          save();
+          applyFilter();
+        });
+
+        return card;
+      }
+
+      function seedSample() {
+        const samples = [
+          { name: "Pasta", qty: 500, unit: "grams", store: "" },
+          { name: "Milk", qty: 1, unit: "cartons", store: "" },
+          { name: "Eggs", qty: 10, unit: "pcs", store: "" },
+          { name: "Coffee", qty: 250, unit: "grams", store: "" }
+        ];
+        for (const s of samples) items.push(makeItem(s.name, s.qty, s.unit, s.store));
+        save();
+      }
+
+      if (!seeded) {
+        seedSample();
+        localStorage.setItem(SEED_KEY, "1");
+        seeded = true;
+      }
+
+      function rebuildFromModel() {
+        container.textContent = "";
+        cardById.clear();
+        for (const item of items) {
+          const card = buildCard(item);
+          cardById.set(String(item.id), card);
+          container.appendChild(card);
+        }
+        applyFilter();
+      }
+
+      rebuildFromModel();
+
+      const shoppingToggle = document.getElementById("shoppingToggle");
+      if (shoppingToggle) {
+        shoppingToggle.addEventListener("input", applyFilter);
+        shoppingToggle.addEventListener("change", applyFilter);
+      }
+
+      function addFromForm() {
+        if (syncing) return;
+
+        const name = String(document.getElementById("newName").value || "").trim();
+        if (!name) return;
+
+        const qty = parseNum(document.getElementById("newQty").value);
+        const unit = String(document.getElementById("newUnit").value || "").trim();
+        const store = String(document.getElementById("newStore").value || "").trim();
+
+        let item = items.find(function(it) {
+          return String(it.name || "").toLowerCase() === name.toLowerCase();
+        });
+
+        if (!item) {
+          item = makeItem(name, qty, unit, store);
+          items.push(item);
+          const card = buildCard(item);
+          cardById.set(String(item.id), card);
+          container.appendChild(card);
+          applyFilter();
+        } else {
+          if (unit) item.unit = unit;
+          if (store) item.store = store;
+          if (qty > 0) item.qty = (item.qty || 0) + qty;
+          item.updatedAt = Date.now();
+          const card = cardById.get(String(item.id));
+          if (card) syncCard(card, item);
+          else save();
+        }
+      }
+
+      const addBtn = document.getElementById("addBtn");
+      if (addBtn) addBtn.addEventListener("click", addFromForm);
+
+      const importArea = document.getElementById("importArea");
+      const exportArea = document.getElementById("exportArea");
+      const importBtn = document.getElementById("importBtn");
+      const exportBtn = document.getElementById("exportBtn");
+
+      function doImport(text) {
+        const raw = String(text || "").trim();
+        if (!raw) return false;
+
+        try {
+          const parsed = JSON.parse(raw);
+          let newItems = null;
+
+          if (Array.isArray(parsed)) newItems = parsed;
+          else if (parsed && Array.isArray(parsed.items)) newItems = parsed.items;
+
+          if (newItems === null) {
+            setStatus("Import failed: no items array found");
+            return false;
+          }
+
+          items = newItems.map(function(it) {
+            return {
+              id: it.id || makeId(),
+              name: String(it.name || "").trim(),
+              qty: Math.max(0, Number(it.qty || 0)),
+              unit: String(it.unit || "").trim(),
+              store: String(it.store || "").trim(),
+              buy: Boolean(it.buy || it.list),
+              updatedAt: Number(it.updatedAt || Date.now())
+            };
+          }).filter(function(it) { return it.name; });
+
+          if (importArea) importArea.value = "";
+          if (exportArea) exportArea.value = "";
+
+          setStatus("Imported successfully");
+          save();
+          rebuildFromModel();
+          return true;
+        } catch (e) {
+          setStatus("Import failed: invalid JSON");
+          return false;
+        }
+      }
+
+      function tryClipboardRead() {
+        return navigator.clipboard.readText()
+          .then(function(txt) {
+            if (!txt || !txt.trim()) return false;
+            return doImport(txt);
+          })
+          .catch(function(err) {
+            return false;
+          });
+      }
+
+      function doExport() {
+        if (syncing) return;
+
+        const json = JSON.stringify({ items: items }, null, 2);
+
+        if (exportArea) exportArea.value = json;
+        setStatus("Exported to Export box. Copy it.");
+
+        try {
+          navigator.clipboard.writeText(json);
+          setStatus("Exported and copied to clipboard if allowed.");
+        } catch (e) {
+          setStatus("Exported to Export box. Clipboard copy failed; select/copy the text.");
+        }
+      }
+
+      if (importBtn) {
+        importBtn.addEventListener("click", function() {
+          if (syncing) return;
+
+          const pasted = importArea ? String(importArea.value || "").trim() : "";
+          if (pasted) {
+            doImport(pasted);
+            return;
+          }
+
+          tryClipboardRead().then(function(ok) {
+            if (!ok) setStatus("Paste the Export JSON into 'Paste here', then press Import.");
+          });
+        });
+      }
+
+      if (exportBtn) {
+        exportBtn.addEventListener("click", doExport);
+      }
+    })();
+  </script>
+</body>
+</html>

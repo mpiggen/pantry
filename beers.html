@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Beer inventory</title>
+<style>
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    margin: 24px;
+    background: #fafafa;
+    color: #222;
+  }
+
+  h1 {
+    margin: 0 0 12px;
+    font-size: 1.4rem;
+  }
+
+  .status {
+    color: #555;
+    margin-bottom: 12px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    padding: 8px 12px;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    background: #e9ecef;
+    color: #222;
+  }
+
+  #drawBtn {
+    background: #2563eb;
+    color: white;
+    font-weight: 600;
+  }
+
+  .sortbtn {
+    background: #e9ecef;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    background: #f3f5f7;
+    padding: 10px;
+    position: sticky;
+    top: 0;
+    border-bottom: 1px solid #d8d8d8;
+    text-align: left;
+  }
+
+  tbody td {
+    padding: 9px;
+    border-bottom: 1px solid #d8d8d8;
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  tbody tr.drawn td {
+    background: #fff300;
+  }
+</style>
+</head>
+
+<body>
+  <h1>Beer inventory</h1>
+  <p class="status" id="status">Ready: use buttons to sort or draw 5 random beers.</p>
+
+  <div class="controls">
+    <button id="drawBtn">Draw 5 random beers</button>
+
+    <button class="sortbtn" data-sort="brewery-asc">Sort: Brewery A → Z</button>
+    <button class="sortbtn" data-sort="brewery-desc">Sort: Brewery Z → A</button>
+
+    <button class="sortbtn" data-sort="name-asc">Sort: Beer A → Z</button>
+    <button class="sortbtn" data-sort="name-desc">Sort: Beer Z → A</button>
+
+    <button class="sortbtn" data-sort="abv-asc">Sort: ABV ↑</button>
+    <button class="sortbtn" data-sort="abv-desc">Sort: ABV ↓</button>
+
+    <button class="sortbtn" data-sort="expiration-asc">Sort: Expiration earliest → latest</button>
+    <button class="sortbtn" data-sort="expiration-desc">Sort: Expiration latest → earliest</button>
+  </div>
+
+  <table id="beerTable">
+    <thead>
+      <tr>
+        <th>Brewery</th>
+        <th>Beer</th>
+        <th>ABV</th>
+        <th>Expiration</th>
+        <th>Bottle</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+<script>
+const rawCsv = `Merk,Soort,Alc,THT,Column1
+Abbaye de Veuclair,Spring,6.8,7-27,75cl
+Affligem,Donker deluxe,8.5,7-27,75cl
+Basqueland,Kokonesia,10.4,2-28,
+Damm,Lemon,3.2,2-27,
+De Struise Brouwers,Black Damnation 26: Froggie,13,7-27,
+Dos Corvos,Loko mad,10,8-28,
+Duvel,Barrel aged Irish whiskey,11.5,10-27,
+Emelisse,Imperial iced pastry stout,19.5,10-30,
+Emelisse,Imperial iced pastry stout fiji rum BA,20,10-45,
+Frontaal,Piece of cake tarte tatin,10,1-29,
+Frontaal,Head first,4.5,11-27,
+Frontaal,Deer Hunter vanilla,10,12-27,
+Frontaal,Tripel intelligence,8.5,2-28,
+Frontaal,Lucid Dreams,5.5,3-27,
+Frontaal,Trifecta Bravoure,12,3-28,
+Frontaal,Trifecta Frontaal,12,3-28,
+Frontaal,Trifecta Folkingebrew,12,3-28,
+Frontaal,Ridgeback,10,3-29,
+Frontaal,Back to black,7,5-28,
+Frontaal,Andreas,8.5,6-27,
+Frontaal,Lemon candy sour,5,7-28,
+Frontaal,Smooth criminals strawberry cola,6.5,8-28,
+Frontaal,Blonde Simmie,5,8-28,
+Frontaal,Drop bock,7.5,9-29,
+Gebrouwen door vrouwen,Misty mango,6,11-27,
+Hertog Jan,Grand Prestige,10,,75cl
+Hoop,Pride ale,4,10-27,
+Hop Hooligans,Koschei: Merlot,11,12-33,
+Jopen,Bokbier,6.5,11-27,
+Jopen,Meesterstuk 2026,11.1,11-45,
+Jopen,You´ve already got breakfast,11,5-45,
+Jopen,What about breakfast?,11,5-45,
+Jopen,I´m a barley girl,11,8-44,
+Jopen,Ex-girlfriend red wine,11.5,8-44,
+Jopen,Ex-girlfriend eisbock brandy,13.4,8-44,
+Kompaan,Rutte,11,10-28,
+La Trappe,Quadrupel Oak ages #55,11,,
+Lervig,Dulce de leche BA imperial stout,15.1,1-27,
+Moersleutel,Eureka north west IPA,7,1-27,
+Moersleutel,Eureka Doppelbock,10,1-29,
+Moersleutel,Arrival mega adjunct BA stout,14,1-29,
+Moersleutel,Barcode turquoise-bordeaux,14,10-28,
+Moersleutel,Supernova smoked imperial stout,10,11-27,
+Moersleutel,Extravagant nuts & honey pastry stout,12,11-27,
+Moersleutel,Sorghum wine,7.5,12-27,
+Moersleutel,Blueprints Cosmic compass west coast IPA,6.5,2-27,
+Moersleutel,Blueprints rocket ship west coast DIPA,8.5,2-27,
+Moersleutel,Extravagant peacherine QIPA,11,2-27,
+Moersleutel,Barcode turquoise-orange,15,2-28,
+Moersleutel,Blueprints UFO white IPA,6,3-27,
+Moersleutel,Gamma-ray burst imperial black IPA,9,3-27,
+Moersleutel,Drift candybar pastry stout,11,3-28,
+Moersleutel,Inferno mega pastry stout,10,3-28,
+Moersleutel,Barcode silver & aquamarine,14,3-29,
+Moersleutel,Slingshot English imperial stout,11,3-29,
+Moersleutel,Recovery BA stout,14,3-29,
+Moersleutel,Missing gear,14,3-29,
+Moersleutel,Crank the spring 2026,5.5,4-27,
+Moersleutel,Hop Holland Hop double IPA,8,4-27,
+Moersleutel,Pastry factory liquorice allsorts pastry stout,10,4-28,
+Moersleutel,Pastry factory muscovado date walnut muffin,10,4-28,
+Moersleutel,10 years Liftoff double mashed TIPA,9,5-27,
+Moersleutel,Meteor map NEDIPA,7.5,5-27,
+Moersleutel,Eureka NEDIPA innovative Hop: Prysma Galaxy,8,6-27,
+Moersleutel,Extravagant Dolcita TIPA,9,6-27,
+Moersleutel,Blueprints light ray IPA,5.5,6-27,
+Moersleutel,Eureka honey tripel,8,6-28,
+Moersleutel,Orbit key double IPA,8,7-27,
+Moersleutel,Beam blast New England IPA,6,7-27,
+Moersleutel,Eureka quintuple mashed rye stout,12,7-28,
+Moersleutel,Pastry factory raisins soaked in fortified wine,10,7-28,
+Moersleutel,Astro bock doppelbock,9,7-29,
+Moersleutel,Eureka New Zealand barleywine,11,7-29,
+Moersleutel,Pure space energy,10,7-29,
+Moersleutel,Barcode silver & laser green,14,7-29,
+Moersleutel,Blueprints space suit,7,8-27,
+Moersleutel,Geitenbreier,6.5,8-27,
+Moersleutel,Blueprints star dust,6.5,8-27,
+Moersleutel,Eureka 12 hours boil oatwine,12,8-28,
+Moersleutel,Stone quern quadra mash quadruple,12,8-28,
+Moersleutel,Eureka wet hop motor oil,12,8-28,
+Moersleutel,Blueprints lunar lamp DIPA,8.5,9-27,
+Moersleutel,Eureka west hop DIPA,8,9-27,
+Moersleutel,Blueprints space station NEIPA,7,9-27,
+Moersleutel,Extravagant ultra high alcohol stout,15,9-29,
+Moersleutel,Indulgence 21,14,,
+Moersleutel,Indulgence 27,14,,
+Moersleutel,Indulgence 29,14,,
+Moersleutel,Indulgence 30,14,,
+Moersleutel,Indulgence 31,14,,
+Moersleutel,Indulgende 32,14,,
+Moersleutel,Indulgence 33,14,,
+Oedipus,Bride,5,3-27,
+Schultenbrau,NZIPA,4,5-28,
+Texels,Stormbock,10,8-35,
+Uiltje,It doesn´t make a difference if we´re naked or not,8.2,1-27,
+Uiltje,Meneer de uil BA imperial stout,12,10-29,
+Uiltje,The ants are my friends,6.2,2-27,
+Uiltje,Lucky leprechaun,5,3-27,
+Uiltje,Lucky leprechaun brandy BA eisbock,12,3-30,
+Vandestreek,Torenwachter,10.3,11-33,
+`;
+
+const tbody = document.getElementById('tbody');
+const status = document.getElementById('status');
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function parseCsv(csvText) {
+  const clean = csvText.replace(/^\uFEFF/, '').trim();
+  const lines = clean.split(/\r?\n/);
+  const rows = [];
+
+  // Skip header line.
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const parts = line.split(',');
+
+    const brewery = parts.length > 0 ? parts[0].trim() : '';
+    const name = parts.length > 1 ? parts[1].trim() : '';
+    const abvText = parts.length > 2 ? parts[2].trim() : '';
+    const expires = parts.length > 3 ? parts[3].trim() : '';
+    const bottle = parts.length > 4 ? parts[4].trim() : '';
+
+    rows.push({
+      id: rows.length + 1,
+      brewery,
+      name,
+      abv: abvText ? Number(abvText) : null,
+      expires,
+      bottle
+    });
+  }
+
+  return rows;
+}
+
+function expirySortValue(value) {
+  if (!value) return null;
+
+  const parts = value.split('-');
+  if (parts.length !== 2) return null;
+
+  const month = parseInt(parts[0], 10);
+  let year = parseInt(parts[1], 10);
+
+  if (year >= 0 && year <= 99) year += 2000;
+
+  return year * 100 + month;
+}
+
+const allRows = parseCsv(rawCsv);
+let currentRows = allRows.slice();
+let drawIds = new Set();
+
+function cmpStr(a, b) {
+  return String(a).localeCompare(String(b), 'nl', { ignoreCase: true, sensitivity: 'base' });
+}
+
+function render(rows) {
+  currentRows = rows;
+
+  const html = rows.map(row => {
+    const cls = drawIds.has(row.id) ? ' class="drawn"' : '';
+
+    const exp = row.expires ? escapeHtml(row.expires) : '<span class="emptyDate">—</span>';
+    const bottle = row.bottle ? escapeHtml(row.bottle) : '';
+    const abv = row.abv === null ? '' : escapeHtml(row.abv);
+
+    return `<tr${cls}>
+      <td>${escapeHtml(row.brewery)}</td>
+      <td>${escapeHtml(row.name)}</td>
+      <td>${abv}</td>
+      <td>${exp}</td>
+      <td>${bottle}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html.join('\n');
+}
+
+function sortRows(field, dir) {
+  const asc = dir === 'asc';
+
+  const sorted = currentRows.slice().sort((a, b) => {
+    if (field === 'brewery') {
+      const c = cmpStr(a.brewery, b.brewery);
+      if (c !== 0) return asc ? c : -c;
+
+      const c2 = cmpStr(a.name, b.name);
+      if (c2 !== 0) return asc ? c2 : -c2;
+
+      return asc ? a.id - b.id : b.id - a.id;
+    }
+
+    if (field === 'name') {
+      const c = cmpStr(a.name, b.name);
+      if (c !== 0) return asc ? c : -c;
+
+      const c2 = cmpStr(a.brewery, b.brewery);
+      if (c2 !== 0) return asc ? c2 : -c2;
+
+      return asc ? a.id - b.id : b.id - a.id;
+    }
+
+    if (field === 'abv') {
+      if (a.abv === null || b.abv === null) {
+        if (a.abv === b.abv) return 0;
+        return a.abv === null ? 1 : -1; // nulls/missing always at end
+      }
+
+      if (a.abv !== b.abv) {
+        return asc ? a.abv - b.abv : b.abv - a.abv;
+      }
+
+      const c = cmpStr(a.brewery, b.brewery);
+      if (c !== 0) return asc ? c : -c;
+
+      return asc ? a.id - b.id : b.id - a.id;
+    }
+
+    if (field === 'expiration') {
+      const av = expirySortValue(a.expires);
+      const bv = expirySortValue(b.expires);
+
+      if (av === null || bv === null) {
+        if (av === null && bv === null) return 0;
+        return av === null ? 1 : -1; // missing dates always at end
+      }
+
+      if (av !== bv) {
+        return asc ? av - bv : bv - av;
+      }
+
+      const c = cmpStr(a.brewery, b.brewery);
+      if (c !== 0) return asc ? c : -c;
+
+      const c2 = cmpStr(a.name, b.name);
+      if (c2 !== 0) return asc ? c2 : -c2;
+
+      return asc ? a.id - b.id : b.id - a.id;
+    }
+
+    return 0;
+  });
+
+  currentRows = sorted;
+  render(currentRows);
+}
+
+function drawRandom() {
+  const ids = currentRows.map(row => row.id);
+  const count = Math.min(5, ids.length);
+
+  if (count === 0) {
+    drawIds.clear();
+    status.textContent = 'No beers available to draw.';
+    return;
+  }
+
+  // Fisher-Yates shuffle to pick unique random rows.
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = ids[i];
+    ids[i] = ids[j];
+    ids[j] = tmp;
+  }
+
+  drawIds = new Set(ids.slice(0, count));
+  render(currentRows);
+  status.textContent = `${count} beer${count === 1 ? '' : 's'} highlighted. Press again for a new draw.`;
+}
+
+document.querySelectorAll('button[data-sort]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const [field, dir] = btn.dataset.sort.split('-');
+    sortRows(field, dir);
+    status.textContent = 'Sorted.';
+  });
+});
+
+document.getElementById('drawBtn').addEventListener('click', drawRandom);
+
+render(currentRows);
+</script>
+</body>
+</html>
